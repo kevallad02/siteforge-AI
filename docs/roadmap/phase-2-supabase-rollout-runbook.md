@@ -251,3 +251,5 @@ Nightly GitHub automation:
 - Required repo secrets:
   - `SUPABASE_URL`
   - `SUPABASE_SERVICE_ROLE_KEY`
+- Default gating behavior:
+  - If nightly sample count is below `30`, workflow uploads artifacts but skips hard fail gating.

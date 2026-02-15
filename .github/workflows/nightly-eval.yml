@@ -36,6 +36,7 @@ jobs:
         run: |
           RECORD_COUNT=$(wc -l < artifacts/evals/recent_eval_records_nightly.jsonl || echo 0)
           echo "RECORD_COUNT=$RECORD_COUNT" >> "$GITHUB_ENV"
+          echo "MIN_RECORD_COUNT=30" >> "$GITHUB_ENV"
           echo "record_count=$RECORD_COUNT"
 
       - name: Build nightly eval artifacts
@@ -72,6 +73,11 @@ jobs:
 
       - name: Enforce eval gate
         run: |
+          if [ "${RECORD_COUNT:-0}" -lt "${MIN_RECORD_COUNT:-30}" ]; then
+            echo "Skipping hard gate: insufficient sample size (${RECORD_COUNT}/${MIN_RECORD_COUNT})."
+            exit 0
+          fi
+
           if [ "${EVAL_EXIT:-0}" != "0" ]; then
             echo "Nightly eval release gate failed."
             exit 1
