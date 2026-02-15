@@ -17,6 +17,8 @@ This directory stores SQL templates for data-contract migrations used by the Sit
   - Curated dataset and daily metrics views for offline/online monitoring.
 - `templates/0003_phase2_provider_routing_and_eval_contract_template.sql`
   - Provider routing config, eval run/sample contracts, and eval summary view.
+- `templates/0004_phase3a_tenant_model_registry_template.sql`
+  - Tenant-aware model registry, model version routing, and telemetry lineage columns.
 - `releases/phase2/20260215205100_phase2_provider_config_staging.sql`
   - Staging-specific provider routing defaults.
 - `releases/phase2/20260215205200_phase2_provider_config_prod.sql`

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from uuid import UUID
 
 ALLOWED_PROVIDERS = {'openai', 'custom'}
 ALLOWED_ROUTE_STRATEGIES = {'single_provider', 'weighted', 'fallback'}
@@ -9,6 +10,7 @@ ALLOWED_ROUTE_STRATEGIES = {'single_provider', 'weighted', 'fallback'}
 @dataclass(frozen=True, slots=True)
 class RuntimeGenerationTelemetry:
     request_id: str | None
+    tenant_id: str
     requested_provider: str | None
     selected_provider: str
     route_strategy: str
@@ -16,12 +18,33 @@ class RuntimeGenerationTelemetry:
     fallback_used: bool
     latency_ms: int | None
     prompt_template_version: str
+    route_id: str | None = None
+    model_id: str | None = None
+    model_version_id: str | None = None
+
+
+def _is_valid_uuid(value: str | None) -> bool:
+    if value is None:
+        return True
+    try:
+        UUID(value)
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def validate_runtime_generation_telemetry(
     telemetry: RuntimeGenerationTelemetry,
 ) -> list[str]:
     errors: list[str] = []
+
+    if not _is_valid_uuid(telemetry.request_id):
+        errors.append('request_id must be a valid UUID when provided')
+
+    if not telemetry.tenant_id:
+        errors.append('tenant_id is required')
+    elif not _is_valid_uuid(telemetry.tenant_id):
+        errors.append('tenant_id must be a valid UUID')
 
     if telemetry.selected_provider not in ALLOWED_PROVIDERS:
         errors.append(f'selected_provider must be one of {sorted(ALLOWED_PROVIDERS)}')
@@ -45,5 +68,14 @@ def validate_runtime_generation_telemetry(
 
     if not telemetry.prompt_template_version:
         errors.append('prompt_template_version is required')
+
+    if not _is_valid_uuid(telemetry.route_id):
+        errors.append('route_id must be a valid UUID when provided')
+
+    if not _is_valid_uuid(telemetry.model_id):
+        errors.append('model_id must be a valid UUID when provided')
+
+    if not _is_valid_uuid(telemetry.model_version_id):
+        errors.append('model_version_id must be a valid UUID when provided')
 
     return errors

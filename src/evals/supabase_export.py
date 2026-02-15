@@ -121,6 +121,10 @@ def row_to_eval_record_payload(row: dict[str, Any]) -> dict[str, Any]:
         'requested_provider': row.get('requested_provider'),
         'selected_provider': row.get('selected_provider'),
         'route_strategy': row.get('route_strategy'),
+        'tenant_id': row.get('tenant_id') or metadata.get('tenantId'),
+        'route_id': row.get('route_id') or metadata.get('routeId'),
+        'model_id': row.get('model_id') or metadata.get('modelId'),
+        'model_version_id': row.get('model_version_id') or metadata.get('modelVersionId'),
     }
 
 

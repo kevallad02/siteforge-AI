@@ -20,6 +20,10 @@ class EvalRecord:
     selected_provider: str | None = None
     route_strategy: str | None = None
     request_id: str | None = None
+    tenant_id: str | None = None
+    route_id: str | None = None
+    model_id: str | None = None
+    model_version_id: str | None = None
 
     @staticmethod
     def from_dict(payload: dict[str, Any]) -> EvalRecord:
@@ -51,6 +55,20 @@ class EvalRecord:
             ),
             request_id=(
                 str(payload.get('request_id')) if payload.get('request_id') is not None else None
+            ),
+            tenant_id=(
+                str(payload.get('tenant_id')) if payload.get('tenant_id') is not None else None
+            ),
+            route_id=(
+                str(payload.get('route_id')) if payload.get('route_id') is not None else None
+            ),
+            model_id=(
+                str(payload.get('model_id')) if payload.get('model_id') is not None else None
+            ),
+            model_version_id=(
+                str(payload.get('model_version_id'))
+                if payload.get('model_version_id') is not None
+                else None
             ),
         )
 
