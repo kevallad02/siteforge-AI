@@ -14,6 +14,12 @@ class EvalRecord:
     edited_after_generate: bool
     published_within_7d: bool
     safety_html_tailwind_compliant: bool
+    fallback_used: bool = False
+    latency_ms: int | None = None
+    requested_provider: str | None = None
+    selected_provider: str | None = None
+    route_strategy: str | None = None
+    request_id: str | None = None
 
     @staticmethod
     def from_dict(payload: dict[str, Any]) -> EvalRecord:
@@ -24,6 +30,28 @@ class EvalRecord:
             edited_after_generate=bool(payload.get('edited_after_generate')),
             published_within_7d=bool(payload.get('published_within_7d')),
             safety_html_tailwind_compliant=bool(payload.get('safety_html_tailwind_compliant')),
+            fallback_used=bool(payload.get('fallback_used', False)),
+            latency_ms=(
+                int(payload['latency_ms']) if payload.get('latency_ms') is not None else None
+            ),
+            requested_provider=(
+                str(payload.get('requested_provider'))
+                if payload.get('requested_provider') is not None
+                else None
+            ),
+            selected_provider=(
+                str(payload.get('selected_provider'))
+                if payload.get('selected_provider') is not None
+                else None
+            ),
+            route_strategy=(
+                str(payload.get('route_strategy'))
+                if payload.get('route_strategy') is not None
+                else None
+            ),
+            request_id=(
+                str(payload.get('request_id')) if payload.get('request_id') is not None else None
+            ),
         )
 
 
@@ -36,12 +64,16 @@ class EvalThresholds:
     edit_after_generate_rate: float = 0.30
     publish_conversion_proxy: float = 0.15
     safety_html_tailwind_compliance: float = 0.995
+    fallback_rate_max: float = 0.25
+    p95_latency_ms_max: int = 45000
 
-    def as_dict(self) -> dict[str, float]:
+    def as_dict(self) -> dict[str, float | int]:
         return {
             'schema_valid_rate': self.schema_valid_rate,
             'patch_apply_success': self.patch_apply_success,
             'edit_after_generate_rate': self.edit_after_generate_rate,
             'publish_conversion_proxy': self.publish_conversion_proxy,
             'safety_html_tailwind_compliance': self.safety_html_tailwind_compliance,
+            'fallback_rate_max': self.fallback_rate_max,
+            'p95_latency_ms_max': self.p95_latency_ms_max,
         }

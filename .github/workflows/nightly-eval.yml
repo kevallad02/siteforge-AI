@@ -1,0 +1,78 @@
+name: Nightly Eval
+
+on:
+  schedule:
+    - cron: '15 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  nightly-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Export eval records from Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          python scripts/evals/export_eval_records_from_supabase.py \
+            --days 1 \
+            --limit 5000 \
+            --output artifacts/evals/recent_eval_records_nightly.jsonl
+
+      - name: Determine record count
+        run: |
+          RECORD_COUNT=$(wc -l < artifacts/evals/recent_eval_records_nightly.jsonl || echo 0)
+          echo "RECORD_COUNT=$RECORD_COUNT" >> "$GITHUB_ENV"
+          echo "record_count=$RECORD_COUNT"
+
+      - name: Build nightly eval artifacts
+        run: |
+          mkdir -p artifacts/evals
+          if [ "${RECORD_COUNT:-0}" -eq 0 ]; then
+            echo '{"status":"skipped","reason":"no_records"}' > artifacts/evals/offline_eval_report_nightly.json
+            echo "-- No eval records available for nightly ingest." > artifacts/evals/eval_run_ingest_nightly.sql
+            echo "EVAL_EXIT=0" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          set +e
+          python scripts/evals/run_offline_eval.py \
+            --input artifacts/evals/recent_eval_records_nightly.jsonl \
+            --output artifacts/evals/offline_eval_report_nightly.json
+          EVAL_EXIT=$?
+          set -e
+
+          python scripts/evals/generate_eval_ingest_sql.py \
+            --input artifacts/evals/recent_eval_records_nightly.jsonl \
+            --sql-output artifacts/evals/eval_run_ingest_nightly.sql \
+            --report-output artifacts/evals/eval_run_report_nightly.json \
+            --run-type canary \
+            --triggered-by github-actions
+
+          echo "EVAL_EXIT=$EVAL_EXIT" >> "$GITHUB_ENV"
+
+      - name: Upload nightly eval artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-eval-artifacts
+          path: artifacts/evals/
+
+      - name: Enforce eval gate
+        run: |
+          if [ "${EVAL_EXIT:-0}" != "0" ]; then
+            echo "Nightly eval release gate failed."
+            exit 1
+          fi

@@ -33,6 +33,7 @@ artifacts/
 checkpoints/
 wandb/
 mlruns/
+supabase/.temp/
 
 # Editors
 .vscode/

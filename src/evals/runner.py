@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -48,17 +49,62 @@ def compute_metric_rates(records: list[EvalRecord]) -> dict[str, float]:
     }
 
 
-def _gate_metrics(metrics: dict[str, float], thresholds: EvalThresholds) -> dict[str, bool]:
-    threshold_map = thresholds.as_dict()
-    return {name: metrics[name] >= limit for name, limit in threshold_map.items()}
+def _p95(values: list[int]) -> int | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = math.ceil(0.95 * len(ordered)) - 1
+    rank = max(0, min(rank, len(ordered) - 1))
+    return ordered[rank]
+
+
+def compute_operational_metrics(records: list[EvalRecord]) -> dict[str, float | int | None]:
+    latency_samples = [record.latency_ms for record in records if record.latency_ms is not None]
+    return {
+        'fallback_rate': _rate([record.fallback_used for record in records]),
+        'p95_latency_ms': _p95([value for value in latency_samples if value >= 0]),
+    }
+
+
+def _gate_quality_metrics(metrics: dict[str, float], thresholds: EvalThresholds) -> dict[str, bool]:
+    return {
+        'schema_valid_rate': metrics['schema_valid_rate'] >= thresholds.schema_valid_rate,
+        'patch_apply_success': metrics['patch_apply_success'] >= thresholds.patch_apply_success,
+        'edit_after_generate_rate': (
+            metrics['edit_after_generate_rate'] >= thresholds.edit_after_generate_rate
+        ),
+        'publish_conversion_proxy': (
+            metrics['publish_conversion_proxy'] >= thresholds.publish_conversion_proxy
+        ),
+        'safety_html_tailwind_compliance': (
+            metrics['safety_html_tailwind_compliance'] >= thresholds.safety_html_tailwind_compliance
+        ),
+    }
+
+
+def _gate_operational_metrics(
+    metrics: dict[str, float | int | None], thresholds: EvalThresholds
+) -> dict[str, bool]:
+    p95_latency_ms = metrics['p95_latency_ms']
+    latency_gate = (
+        True if p95_latency_ms is None else int(p95_latency_ms) <= thresholds.p95_latency_ms_max
+    )
+    return {
+        'fallback_rate_max': float(metrics['fallback_rate']) <= thresholds.fallback_rate_max,
+        'p95_latency_ms_max': latency_gate,
+    }
 
 
 def build_eval_report(
     records: list[EvalRecord], thresholds: EvalThresholds | None = None
 ) -> dict[str, Any]:
     effective_thresholds = thresholds or EvalThresholds()
-    metrics = compute_metric_rates(records)
-    gates = _gate_metrics(metrics, effective_thresholds)
+    quality_metrics = compute_metric_rates(records)
+    operational_metrics = compute_operational_metrics(records)
+    metrics = {**quality_metrics, **operational_metrics}
+    quality_gates = _gate_quality_metrics(quality_metrics, effective_thresholds)
+    operational_gates = _gate_operational_metrics(operational_metrics, effective_thresholds)
+    gates = {**quality_gates, **operational_gates}
     return {
         'generated_at': datetime.now(UTC).isoformat(),
         'record_count': len(records),

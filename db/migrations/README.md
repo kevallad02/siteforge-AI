@@ -15,3 +15,13 @@ This directory stores SQL templates for data-contract migrations used by the Sit
   - Base contract constraints for generation + patch + outcomes.
 - `templates/0002_ai_eval_views_template.sql`
   - Curated dataset and daily metrics views for offline/online monitoring.
+- `templates/0003_phase2_provider_routing_and_eval_contract_template.sql`
+  - Provider routing config, eval run/sample contracts, and eval summary view.
+- `releases/phase2/20260215205100_phase2_provider_config_staging.sql`
+  - Staging-specific provider routing defaults.
+- `releases/phase2/20260215205200_phase2_provider_config_prod.sql`
+  - Prod-specific provider routing defaults.
+- `releases/phase2/20260215205300_phase2_provider_config_single_db.sql`
+  - Single-database routing defaults (use when staging/prod share one DB).
+- Use with runbook:
+  - `docs/roadmap/phase-2-supabase-rollout-runbook.md`

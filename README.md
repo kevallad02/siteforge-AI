@@ -40,6 +40,8 @@ Separate repository for SiteCraft AI/ML systems work. This repo is intentionally
 ./.venv/bin/python -m ruff format --check .
 ./.venv/bin/python -m pytest
 ./.venv/bin/python scripts/evals/run_offline_eval.py
+./.venv/bin/python scripts/evals/export_eval_records_from_supabase.py --help
+./.venv/bin/python scripts/evals/generate_eval_ingest_sql.py
 ```
 
 ## Why This Install Flow
@@ -51,3 +53,47 @@ Separate repository for SiteCraft AI/ML systems work. This repo is intentionally
 
 - `db/migrations/templates/0001_ai_training_examples_contract_template.sql`
 - `db/migrations/templates/0002_ai_eval_views_template.sql`
+- `db/migrations/templates/0003_phase2_provider_routing_and_eval_contract_template.sql`
+
+## Supabase Phase 2 rollout artifacts
+
+- Base migration:
+  - `supabase/migrations/20260215205000_phase2_provider_routing_and_eval.sql`
+- Environment overlays:
+  - `db/migrations/releases/phase2/20260215205100_phase2_provider_config_staging.sql`
+  - `db/migrations/releases/phase2/20260215205200_phase2_provider_config_prod.sql`
+  - `db/migrations/releases/phase2/20260215205300_phase2_provider_config_single_db.sql`
+- Rollout runbook:
+  - `docs/roadmap/phase-2-supabase-rollout-runbook.md`
+
+## Phase 2 kickoff assets
+
+- `docs/roadmap/phase-2-implementation-checklist.md`
+  - Workstream checklist + measurable acceptance criteria for provider abstraction and eval hardening.
+- `docs/roadmap/phase-2-runtime-integration-spec.md`
+  - Product repo wiring spec for runtime generation telemetry writes.
+- `docs/roadmap/phase-2-canary-and-oncall.md`
+  - Canary guardrails, rollback matrix, and on-call checklist.
+- `docs/adr/0001-phase2-provider-routing-and-eval-gates.md`
+  - Architecture decision record for routing/eval-gate policy.
+
+## Eval ingestion pipeline
+
+- Export real eval records from Supabase:
+  - `scripts/evals/export_eval_records_from_supabase.py`
+- Generate run report + SQL ingestion script:
+  - `scripts/evals/generate_eval_ingest_sql.py`
+- Default outputs:
+  - `artifacts/evals/eval_run_report.json`
+  - `artifacts/evals/eval_run_ingest.sql`
+- Execute generated SQL in Supabase SQL Editor to persist into:
+  - `public.ai_eval_runs`
+  - `public.ai_eval_samples`
+
+## Scheduled eval automation
+
+- Daily workflow:
+  - `.github/workflows/nightly-eval.yml`
+- Required GitHub repo secrets:
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
