@@ -16,7 +16,7 @@ class EvalRecord:
     safety_html_tailwind_compliant: bool
 
     @staticmethod
-    def from_dict(payload: dict[str, Any]) -> 'EvalRecord':
+    def from_dict(payload: dict[str, Any]) -> EvalRecord:
         return EvalRecord(
             record_id=str(payload.get('record_id') or payload.get('id') or 'unknown'),
             schema_valid=bool(payload.get('schema_valid')),

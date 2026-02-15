@@ -35,12 +35,17 @@ Separate repository for SiteCraft AI/ML systems work. This repo is intentionally
 ## Quickstart
 
 ```bash
-python -m pip install -e ".[dev]"
-ruff check .
-ruff format --check .
-pytest
-python scripts/evals/run_offline_eval.py
+./scripts/bootstrap_python_env.sh
+./.venv/bin/python -m ruff check .
+./.venv/bin/python -m ruff format --check .
+./.venv/bin/python -m pytest
+./.venv/bin/python scripts/evals/run_offline_eval.py
 ```
+
+## Why This Install Flow
+
+- Uses a repo-local `.venv` to avoid global/site-package permission issues.
+- Uses `--no-build-isolation` so editable installs work reliably when network access is limited.
 
 ## Database templates
 

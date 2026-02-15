@@ -37,7 +37,9 @@ def _fallback_records() -> list[EvalRecord]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description='Run offline evaluation metrics over JSONL records.')
+    parser = argparse.ArgumentParser(
+        description='Run offline evaluation metrics over JSONL records.'
+    )
     parser.add_argument(
         '--input',
         type=Path,

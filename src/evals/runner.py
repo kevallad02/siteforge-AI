@@ -23,7 +23,9 @@ def load_eval_records(path: Path) -> list[EvalRecord]:
             except json.JSONDecodeError as error:
                 raise ValueError(f'Invalid JSONL at line {line_number} in {path}') from error
             if not isinstance(payload, dict):
-                raise ValueError(f'Each JSONL line must be an object (line {line_number} in {path})')
+                raise ValueError(
+                    f'Each JSONL line must be an object (line {line_number} in {path})'
+                )
             records.append(EvalRecord.from_dict(payload))
     return records
 
