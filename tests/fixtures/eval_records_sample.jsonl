@@ -1,0 +1,5 @@
+{"record_id":"rec-1","schema_valid":true,"patch_apply_success":true,"edited_after_generate":true,"published_within_7d":true,"safety_html_tailwind_compliant":true}
+{"record_id":"rec-2","schema_valid":true,"patch_apply_success":true,"edited_after_generate":false,"published_within_7d":false,"safety_html_tailwind_compliant":true}
+{"record_id":"rec-3","schema_valid":true,"patch_apply_success":false,"edited_after_generate":false,"published_within_7d":false,"safety_html_tailwind_compliant":true}
+{"record_id":"rec-4","schema_valid":false,"patch_apply_success":false,"edited_after_generate":true,"published_within_7d":false,"safety_html_tailwind_compliant":true}
+{"record_id":"rec-5","schema_valid":true,"patch_apply_success":true,"edited_after_generate":false,"published_within_7d":false,"safety_html_tailwind_compliant":true}
