@@ -9,6 +9,7 @@ from .contracts import EvalRecord, EvalThresholds
 from .runner import build_eval_report
 
 _VALID_RUN_TYPES = {'offline', 'shadow', 'canary'}
+_VALID_SCHEMA_VARIANTS = {'sitecraft', 'v2'}
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +19,7 @@ class EvalIngestContext:
     commit_sha: str | None = None
     dataset_ref: str | None = None
     source: str = 'scripts/evals/generate_eval_ingest_sql.py'
+    schema_variant: str = 'sitecraft'
 
 
 def _sql_text(value: str | None) -> str:
@@ -49,6 +51,12 @@ def _uuid_or_none(value: str | None) -> str | None:
         return None
 
 
+def _map_sitecraft_run_type(run_type: str) -> str:
+    if run_type == 'shadow':
+        return 'online_shadow'
+    return run_type
+
+
 def build_eval_ingest_sql(
     records: list[EvalRecord],
     thresholds: EvalThresholds,
@@ -60,6 +68,11 @@ def build_eval_ingest_sql(
         raise ValueError(
             f'Unsupported run_type: {context.run_type}. Must be one of {_VALID_RUN_TYPES}'
         )
+    if context.schema_variant not in _VALID_SCHEMA_VARIANTS:
+        raise ValueError(
+            'Unsupported schema_variant: '
+            f'{context.schema_variant}. Must be one of {_VALID_SCHEMA_VARIANTS}'
+        )
 
     active_run_id = run_id or str(uuid4())
     eval_report = report or build_eval_report(records, thresholds=thresholds)
@@ -70,53 +83,110 @@ def build_eval_ingest_sql(
         'recordCount': len(records),
         'metrics': eval_report['metrics'],
         'gates': eval_report['gates'],
+        'triggeredBy': context.triggered_by,
+        'commitSha': context.commit_sha,
+        'thresholds': thresholds.as_dict(),
     }
-    run_insert = (
-        'INSERT INTO public.ai_eval_runs ('
-        'run_id, run_type, triggered_by, commit_sha, dataset_ref, thresholds, status, '
-        'started_at, finished_at, metadata'
-        ') VALUES ('
-        f'{_sql_text(active_run_id)}::uuid, '
-        f'{_sql_text(context.run_type)}, '
-        f'{_sql_text(context.triggered_by)}, '
-        f'{_sql_text(context.commit_sha)}, '
-        f'{_sql_text(context.dataset_ref)}, '
-        f'{_sql_jsonb(thresholds.as_dict())}, '
-        f'{_sql_text(status)}, '
-        "timezone('utc', now()), "
-        "timezone('utc', now()), "
-        f'{_sql_jsonb(run_metadata)}'
-        ');'
-    )
+
+    if context.schema_variant == 'sitecraft':
+        sitecraft_status = 'completed' if status == 'passed' else 'failed'
+        run_insert = (
+            'INSERT INTO public.ai_eval_runs ('
+            'id, run_type, status, dataset_ref, provider, model, prompt_set_version, '
+            'metrics, metadata, started_at, completed_at'
+            ') VALUES ('
+            f'{_sql_text(active_run_id)}::uuid, '
+            f'{_sql_text(_map_sitecraft_run_type(context.run_type))}, '
+            f'{_sql_text(sitecraft_status)}, '
+            f'{_sql_text(context.dataset_ref)}, '
+            'NULL, '
+            'NULL, '
+            'NULL, '
+            f'{_sql_jsonb(eval_report["metrics"])}, '
+            f'{_sql_jsonb(run_metadata)}, '
+            "timezone('utc', now()), "
+            "timezone('utc', now())"
+            ');'
+        )
+    else:
+        run_insert = (
+            'INSERT INTO public.ai_eval_runs ('
+            'run_id, run_type, triggered_by, commit_sha, dataset_ref, thresholds, status, '
+            'started_at, finished_at, metadata'
+            ') VALUES ('
+            f'{_sql_text(active_run_id)}::uuid, '
+            f'{_sql_text(context.run_type)}, '
+            f'{_sql_text(context.triggered_by)}, '
+            f'{_sql_text(context.commit_sha)}, '
+            f'{_sql_text(context.dataset_ref)}, '
+            f'{_sql_jsonb(thresholds.as_dict())}, '
+            f'{_sql_text(status)}, '
+            "timezone('utc', now()), "
+            "timezone('utc', now()), "
+            f'{_sql_jsonb(run_metadata)}'
+            ');'
+        )
 
     lines = ['BEGIN;', run_insert]
-    for record in records:
+    for index, record in enumerate(records, start=1):
         valid_request_id = _uuid_or_none(record.request_id)
         sample_metadata: dict[str, Any] = {'recordId': record.record_id}
         if record.request_id and valid_request_id is None:
             sample_metadata['invalidRequestId'] = record.request_id
 
-        sample_insert = (
-            'INSERT INTO public.ai_eval_samples ('
-            'run_id, request_id, requested_provider, selected_provider, route_strategy, '
-            'fallback_used, latency_ms, schema_valid, patch_apply_success, edited_after_generate, '
-            'published_within_7d, safety_html_tailwind_compliant, metadata'
-            ') VALUES ('
-            f'{_sql_text(active_run_id)}::uuid, '
-            f'{_sql_text(valid_request_id)}::uuid, '
-            f'{_sql_text(record.requested_provider)}, '
-            f'{_sql_text(record.selected_provider)}, '
-            f'{_sql_text(record.route_strategy)}, '
-            f'{_sql_bool(record.fallback_used)}, '
-            f'{_sql_int(record.latency_ms)}, '
-            f'{_sql_bool(record.schema_valid)}, '
-            f'{_sql_bool(record.patch_apply_success)}, '
-            f'{_sql_bool(record.edited_after_generate)}, '
-            f'{_sql_bool(record.published_within_7d)}, '
-            f'{_sql_bool(record.safety_html_tailwind_compliant)}, '
-            f'{_sql_jsonb(sample_metadata)}'
-            ');'
-        )
+        if context.schema_variant == 'sitecraft':
+            sample_key = f'{record.record_id}-{index}'
+            sample_metadata = {
+                **sample_metadata,
+                'requestId': valid_request_id,
+                'requestedProvider': record.requested_provider,
+                'selectedProvider': record.selected_provider,
+                'routeStrategy': record.route_strategy,
+                'fallbackUsed': record.fallback_used,
+            }
+            sample_insert = (
+                'INSERT INTO public.ai_eval_samples ('
+                'run_id, sample_key, prompt_hash, provider, model, schema_valid, '
+                'patch_apply_success, safety_html_tailwind_compliant, edited_after_generate, '
+                'published_within_7d, latency_ms, metadata'
+                ') VALUES ('
+                f'{_sql_text(active_run_id)}::uuid, '
+                f'{_sql_text(sample_key)}, '
+                'NULL, '
+                f'{_sql_text(record.selected_provider)}, '
+                'NULL, '
+                f'{_sql_bool(record.schema_valid)}, '
+                f'{_sql_bool(record.patch_apply_success)}, '
+                f'{_sql_bool(record.safety_html_tailwind_compliant)}, '
+                f'{_sql_bool(record.edited_after_generate)}, '
+                f'{_sql_bool(record.published_within_7d)}, '
+                f'{_sql_int(record.latency_ms)}, '
+                f'{_sql_jsonb(sample_metadata)}'
+                ');'
+            )
+        else:
+            sample_insert = (
+                'INSERT INTO public.ai_eval_samples ('
+                'run_id, request_id, requested_provider, selected_provider, route_strategy, '
+                'fallback_used, latency_ms, schema_valid, patch_apply_success, '
+                'edited_after_generate, '
+                'published_within_7d, safety_html_tailwind_compliant, metadata'
+                ') VALUES ('
+                f'{_sql_text(active_run_id)}::uuid, '
+                f'{_sql_text(valid_request_id)}::uuid, '
+                f'{_sql_text(record.requested_provider)}, '
+                f'{_sql_text(record.selected_provider)}, '
+                f'{_sql_text(record.route_strategy)}, '
+                f'{_sql_bool(record.fallback_used)}, '
+                f'{_sql_int(record.latency_ms)}, '
+                f'{_sql_bool(record.schema_valid)}, '
+                f'{_sql_bool(record.patch_apply_success)}, '
+                f'{_sql_bool(record.edited_after_generate)}, '
+                f'{_sql_bool(record.published_within_7d)}, '
+                f'{_sql_bool(record.safety_html_tailwind_compliant)}, '
+                f'{_sql_jsonb(sample_metadata)}'
+                ');'
+            )
         lines.append(sample_insert)
 
     lines.append('COMMIT;')

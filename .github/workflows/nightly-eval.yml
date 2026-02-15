@@ -61,6 +61,7 @@ jobs:
             --sql-output artifacts/evals/eval_run_ingest_nightly.sql \
             --report-output artifacts/evals/eval_run_report_nightly.json \
             --run-type canary \
+            --schema-variant sitecraft \
             --triggered-by github-actions
 
           echo "EVAL_EXIT=$EVAL_EXIT" >> "$GITHUB_ENV"

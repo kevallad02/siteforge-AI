@@ -229,6 +229,7 @@ After runtime deploy, run this daily automation path:
   --sql-output artifacts/evals/eval_run_ingest.sql \
   --report-output artifacts/evals/eval_run_report.json \
   --run-type canary \
+  --schema-variant sitecraft \
   --triggered-by manual
 ```
 

@@ -40,6 +40,12 @@ def parse_args() -> argparse.Namespace:
         help='Path to write eval report JSON.',
     )
     parser.add_argument('--run-type', choices=['offline', 'shadow', 'canary'], default='offline')
+    parser.add_argument(
+        '--schema-variant',
+        choices=['sitecraft', 'v2'],
+        default='sitecraft',
+        help='Target SQL schema variant for ai_eval_runs/ai_eval_samples.',
+    )
     parser.add_argument('--triggered-by', default='local-cli')
     parser.add_argument('--commit-sha', default=os.getenv('GITHUB_SHA'))
     parser.add_argument('--dataset-ref', default=None)
@@ -77,6 +83,7 @@ def main() -> int:
         triggered_by=args.triggered_by,
         commit_sha=args.commit_sha,
         dataset_ref=args.dataset_ref or str(args.input),
+        schema_variant=args.schema_variant,
     )
     sql_text, run_id, status = build_eval_ingest_sql(
         records=records,

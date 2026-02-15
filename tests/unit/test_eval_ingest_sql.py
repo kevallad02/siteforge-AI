@@ -57,6 +57,8 @@ def test_build_eval_ingest_sql_generates_expected_statements() -> None:
     assert run_id == '2e315354-3b92-4c70-9c69-2c45f97f3363'
     assert status == 'passed'
     assert 'INSERT INTO public.ai_eval_runs' in sql_text
+    assert 'id, run_type, status, dataset_ref' in sql_text
     assert 'INSERT INTO public.ai_eval_samples' in sql_text
+    assert 'sample_key' in sql_text
     assert "'not-a-uuid'" not in sql_text
     assert 'invalidRequestId' in sql_text
